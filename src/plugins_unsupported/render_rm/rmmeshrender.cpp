@@ -63,7 +63,7 @@ QList<QAction*> RmMeshShaderRenderPlugin::actions()
 
 void RmMeshShaderRenderPlugin::initActionList() {
 
-	QDir shadersDir = QDir(qApp->applicationDirPath());
+	QDir shadersDir = QDir("/usr/share/meshlab");
 #if defined(Q_OS_WIN)
 	if (shadersDir.dirName() == "debug" ||
 	    shadersDir.dirName() == "release" ||

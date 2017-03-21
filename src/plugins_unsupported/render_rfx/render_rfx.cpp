@@ -55,7 +55,7 @@ QList<QAction*> RenderRFX::actions()
 
 void RenderRFX::initActionList()
 {
-	QDir shadersDir = PluginManager::getBaseDirPath();
+	QDir shadersDir = QDir("/usr/share/meshlab");;
 
 #if defined(Q_OS_WIN)
 	if (shadersDir.dirName() == "debug"   ||

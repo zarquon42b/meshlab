@@ -27,7 +27,7 @@ SUBDIRS       = common \
                 meshlabplugins/filter_colorize \
                 meshlabplugins/filter_colorproc \
                 meshlabplugins/filter_create \
-                meshlabplugins/filter_csg \
+                # meshlabplugins/filter_csg \
                 meshlabplugins/filter_dirt \
                 meshlabplugins/filter_fractal \
                 meshlabplugins/filter_func \
@@ -48,7 +48,7 @@ SUBDIRS       = common \
                 meshlabplugins/filter_sdfgpu \
                 meshlabplugins/filter_select \
                 meshlabplugins/filter_sketchfab \
-                meshlabplugins/filter_ssynth \
+                # meshlabplugins/filter_ssynth \
                 meshlabplugins/filter_texture \
                 meshlabplugins/filter_trioptimize \
                 meshlabplugins/filter_unsharp \

@@ -317,7 +317,7 @@ void ShaderDialog::changeTexturePath(int i) {
 void ShaderDialog::browseTexturePath(int i) {
 	QFileDialog fd(0,"Choose new texture");
 
-	QDir shadersDir = QDir(qApp->applicationDirPath());
+	QDir shadersDir = QDir("/usr/share/meshlab");
 #if defined(Q_OS_WIN)
 	if (shadersDir.dirName() == "debug" || shadersDir.dirName() == "release")
 		shadersDir.cdUp();

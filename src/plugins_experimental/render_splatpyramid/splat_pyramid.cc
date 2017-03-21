@@ -85,7 +85,7 @@ void PyramidPointRendererPlugin::Init(QAction *, MeshDocument &md, RenderMode &,
 		objects[i].setRendererType( render_mode );
 
   	/// Sets the path to the meshlab's shaders directory
-  	QDir shadersDir = QDir(qApp->applicationDirPath());
+  	QDir shadersDir = QDir("/usr/share/meshlab");
 #if defined(Q_OS_WIN)
 	if (shadersDir.dirName() == "debug" || shadersDir.dirName() == "release" || shadersDir.dirName() == "plugins"  )
 		shadersDir.cdUp();

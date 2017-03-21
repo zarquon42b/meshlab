@@ -30,11 +30,11 @@ win32-msvc2012:  LIBS += -L../distrib -lcommon -lopengl32 -lGLU32
 win32-msvc2015:  LIBS += -L../distrib -lcommon -lopengl32 -lGLU32
 win32-g++:  LIBS += -L../distrib -lcommon      
 linux-g++:  LIBS += -L../distrib -lcommon
-linux-g++:QMAKE_RPATHDIR += ../distrib
+linux-g++:QMAKE_RPATHDIR += /usr/lib/meshlab
 linux-g++-32:  LIBS += -L../distrib -lcommon
-linux-g++-32:QMAKE_RPATHDIR += ../distrib
+linux-g++-32:QMAKE_RPATHDIR += /usr/lib/meshlab
 linux-g++-64:  LIBS += -L../distrib -lcommon
-linux-g++-64:QMAKE_RPATHDIR += ../distrib
+linux-g++-64:QMAKE_RPATHDIR += /usr/lib/meshlab
 #CONFIG (release,debug | release) {
 #	win32-msvc2005:release:  LIBS += -L../common/release -lcommon
 #	win32-msvc2008:release:  LIBS += -L../common/release -lcommon

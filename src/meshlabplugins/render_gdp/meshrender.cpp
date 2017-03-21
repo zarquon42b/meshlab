@@ -38,7 +38,7 @@ void MeshShaderRenderPlugin::initActionList() {
 	qaNone->setCheckable(false);
 	actionList << qaNone;*/
 
-	QDir shadersDir = QDir(qApp->applicationDirPath());
+	QDir shadersDir = QDir("/usr/share/meshlab");
 #if defined(Q_OS_WIN)
 	if (shadersDir.dirName() == "debug" || shadersDir.dirName() == "release" || shadersDir.dirName() == "plugins")
 		shadersDir.cdUp();

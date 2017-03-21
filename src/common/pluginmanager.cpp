@@ -211,7 +211,7 @@ QString PluginManager::getBaseDirPath()
 
 QString PluginManager::getDefaultPluginDirPath()
 {
-  QDir pluginsDir(getBaseDirPath());
+  QDir pluginsDir("/usr/lib/meshlab");
   if(!pluginsDir.exists("plugins"))
     //QMessageBox::warning(0,"Meshlab Initialization","Serious error. Unable to find the plugins directory.");
     qDebug("Meshlab Initialization: Serious error. Unable to find the plugins directory.");
