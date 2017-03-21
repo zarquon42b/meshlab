@@ -25,6 +25,7 @@
 #include <wrap/gl/pick.h>
 #include <wrap/qt/device_to_logical.h>
 #include <meshlab/glarea.h>
+#include <vcg/space/intersection2.h>
 
 
 using namespace std;
@@ -50,16 +51,194 @@ void EditSelectPlugin::suggestedRenderingData(MeshModel & m, MLRenderingData & d
 
 	if (selectionMode == SELECT_VERT_MODE)
 		opts._vertex_sel = true;
+
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		opts._face_sel = true;
+		opts._vertex_sel = true;
+	}
+
 	dt.set(opts);
 }
 
-void EditSelectPlugin::keyReleaseEvent(QKeyEvent *, MeshModel &/*m*/, GLArea *gla)
+void EditSelectPlugin::keyReleaseEvent(QKeyEvent *e, MeshModel &m, GLArea *gla)
 {
-	gla->setCursor(QCursor(QPixmap(":/images/sel_rect.png"), 1, 1));
+	// global "all" commands
+	if (e->key() == Qt::Key_A) // select all
+	{
+		if (areaMode == 0){ // vertices
+          tri::UpdateSelection<CMeshO>::VertexAll(m.cm);
+			gla->updateSelection(m.id(), true, false);
+		}
+		else if (areaMode == 1){ //faces
+          tri::UpdateSelection<CMeshO>::FaceAll(m.cm);
+			gla->updateSelection(m.id(), false, true);
+		}
+		gla->update();
+        e->accept();
+	}
+
+	if (e->key() == Qt::Key_D) // deselect all
+	{
+		if (areaMode == 0){ // vertices
+          tri::UpdateSelection<CMeshO>::VertexClear(m.cm);
+			gla->updateSelection(m.id(), true, false);
+		}
+		else if (areaMode == 1){ //faces
+          tri::UpdateSelection<CMeshO>::FaceClear(m.cm);
+			gla->updateSelection(m.id(), false, true);
+		}
+		gla->update();
+        e->accept();
+	}
+
+	if (e->key() == Qt::Key_I) // invert all
+	{
+		if (areaMode == 0){ // vertices
+          tri::UpdateSelection<CMeshO>::VertexInvert(m.cm);
+			gla->updateSelection(m.id(), true, false);
+		}
+		else if (areaMode == 1){ //faces
+          tri::UpdateSelection<CMeshO>::FaceInvert(m.cm);
+			gla->updateSelection(m.id(), false, true);
+		}
+		gla->update();
+        e->accept();        
+	}
+
+
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		if (e->key() == Qt::Key_T) // toggle pick mode
+		{
+			areaMode = (areaMode + 1) % 2;
+			gla->update();
+            e->accept();            
+		}
+
+		if (e->key() == Qt::Key_C) // clear Polyline
+		{
+			selPolyLine.clear();
+			gla->update();
+            e->accept();            
+		}
+
+		if (e->key() == Qt::Key_Backspace) // remove last point Polyline
+		{
+			if (selPolyLine.size() > 0)
+				selPolyLine.pop_back();
+			gla->update();
+            e->accept();            
+		}
+
+		if (e->key() == Qt::Key_Q) // add to selection
+		{
+			doSelection(m, gla, 0);
+			gla->update();
+            e->accept();
+		}
+
+		if (e->key() == Qt::Key_W) // sub from selection
+		{
+			doSelection(m, gla, 1);
+			gla->update();
+            e->accept();
+		}
+
+		if (e->key() == Qt::Key_E) // invert selection
+		{
+			doSelection(m, gla, 2);
+			gla->update();
+            e->accept();
+		}
+        gla->setCursor(QCursor(QPixmap(":/images/sel_area.png"), 1, 1));
+	}
+
+	
+}
+
+void EditSelectPlugin::doSelection(MeshModel &m, GLArea *gla, int mode)
+{
+  QImage bufQImg(this->viewpSize[2],this->viewpSize[3],QImage::Format_RGB32);
+  bufQImg.fill(Qt::white);
+  QPainter bufQPainter(&bufQImg);
+  vector<QPointF> qpoints;
+  for(int i=0;i<selPolyLine.size();++i)
+    qpoints.push_back(QPointF(selPolyLine[i][0],selPolyLine[i][1]));    
+  bufQPainter.setBrush(QBrush(Qt::black));
+  bufQPainter.drawPolygon(&qpoints[0],qpoints.size(), Qt::WindingFill); 
+  QRgb blk=QColor(Qt::black).rgb();
+  
+    
+  static Eigen::Matrix<Scalarm,4,4> LastSelMatrix;
+  static vector<Point3m> projVec;
+  static MeshModel *lastMeshModel=0;
+  if((LastSelMatrix != SelMatrix) || lastMeshModel != &m)
+  {
+    int t0=clock();
+    GLPickTri<CMeshO>::FillProjectedVector(m.cm,projVec,this->SelMatrix,this->SelViewport);
+    LastSelMatrix=this->SelMatrix;
+    lastMeshModel=&m;
+  }    
+  
+    if (areaMode == 0) // vertices
+    {   
+      int t0=clock();
+      for (size_t vi = 0; vi<m.cm.vert.size(); ++vi) if (!m.cm.vert[vi].IsD())
+      {
+        bool res=false;
+        if ((projVec[vi][2] <= -1.0) || (projVec[vi][2] >= 1.0) ||
+            (projVec[vi][0] <= 0) || (projVec[vi][0] >= this->viewpSize[2]) ||
+            (projVec[vi][1] <= 0) || (projVec[vi][1] >= this->viewpSize[3]))
+          res = false;
+        else
+        {
+          res = (bufQImg.pixel( projVec[vi][0],projVec[vi][1]) == blk);
+        }
+        if (res)
+          switch(mode){
+          case 0: m.cm.vert[vi].SetS(); break;
+          case 1: m.cm.vert[vi].ClearS(); break;
+          case 2: m.cm.vert[vi].IsS() ? m.cm.vert[vi].ClearS() : m.cm.vert[vi].SetS();
+          }
+      }
+      gla->updateSelection(m.id(), true, false);
+    }
+    else if (areaMode == 1) //faces
+	{
+      for (size_t fi = 0; fi < m.cm.face.size(); ++fi) if (!m.cm.face[fi].IsD())
+      {
+        bool res=false;
+        for (int vi = 0; vi < 3 && !res ; vi++)
+        {
+          int vInd=tri::Index(m.cm,m.cm.face[fi].V(vi));
+          if ((projVec[vInd][2] <= -1.0) || (projVec[vInd][2] >= 1.0) ||
+              (projVec[vInd][0] <= 0) || (projVec[vInd][0] >= this->viewpSize[2]) ||
+              (projVec[vInd][1] <= 0) || (projVec[vInd][1] >= this->viewpSize[3]))
+            res = false; 
+          else
+            res = (bufQImg.pixel( projVec[vInd][0],projVec[vInd][1]) == blk);
+        }
+
+        if (res) // do the actual selection
+        {
+          switch(mode){
+          case 0: m.cm.face[fi].SetS(); break;
+          case 1: m.cm.face[fi].ClearS(); break;
+          case 2: m.cm.face[fi].IsS() ? m.cm.face[fi].ClearS() : m.cm.face[fi].SetS();
+          }
+        }
+      }
+      gla->updateSelection(m.id(), false, true);
+    }
+    
 }
 
 void EditSelectPlugin::keyPressEvent(QKeyEvent */*event*/, MeshModel &/*m*/, GLArea *gla)
 {
+	if (selectionMode == SELECT_AREA_MODE)
+		return;
+
 	Qt::KeyboardModifiers mod = QApplication::queryKeyboardModifiers();
 	if (mod == Qt::AltModifier && selectionMode != SELECT_VERT_MODE)
 		gla->setCursor(QCursor(QPixmap(":/images/sel_rect_eye.png"), 1, 1));
@@ -83,6 +262,12 @@ void EditSelectPlugin::keyPressEvent(QKeyEvent */*event*/, MeshModel &/*m*/, GLA
 
 void EditSelectPlugin::mousePressEvent(QMouseEvent * event, MeshModel &m, GLArea *gla)
 {
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		selPolyLine.push_back(QTLogicalToOpenGL(gla, event->pos()));
+		return;
+	}
+
 	LastSelVert.clear();
 	LastSelFace.clear();
 
@@ -118,9 +303,16 @@ void EditSelectPlugin::mousePressEvent(QMouseEvent * event, MeshModel &m, GLArea
 
 void EditSelectPlugin::mouseMoveEvent(QMouseEvent * event, MeshModel & m, GLArea * gla)
 {
-	prev = cur;
-	cur = QTLogicalToOpenGL(gla, event->pos());
-	isDragging = true;
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		selPolyLine.back() = QTLogicalToOpenGL(gla, event->pos());
+	}
+	else
+	{
+		prev = cur;
+		cur = QTLogicalToOpenGL(gla, event->pos());
+		isDragging = true;
+	}
 	gla->update();
 
 	//    // to avoid too frequent rendering
@@ -143,9 +335,67 @@ void EditSelectPlugin::mouseReleaseEvent(QMouseEvent * event, MeshModel &/*m*/, 
 		return;
 
 	gla->updateAllSiblingsGLAreas();
+
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		selPolyLine.back() = QTLogicalToOpenGL(gla, event->pos());
+		return;
+	}
+
 	prev = cur;
 	cur = QTLogicalToOpenGL(gla, event->pos());
 	isDragging = false;
+}
+
+void EditSelectPlugin::DrawXORPolyLine(GLArea * gla)
+{
+	if (selPolyLine.size() == 0)
+		return;
+
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glOrtho(0, QTDeviceWidth(gla), 0, QTDeviceHeight(gla), -1, 1);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+	glPushAttrib(GL_ENABLE_BIT);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_TEXTURE_2D);
+	glEnable(GL_COLOR_LOGIC_OP);
+	glLogicOp(GL_XOR);
+	glColor3f(1, 1, 1);
+	glLineStipple(1, 0xAAAA);
+	glEnable(GL_LINE_STIPPLE);
+    glLineWidth(QTLogicalToDevice(gla,1));
+	//draw PolyLine
+	if (selPolyLine.size() == 1)
+	{
+		glBegin(GL_POINTS);
+		glVertex(selPolyLine[0]);
+	}
+	else if (selPolyLine.size() == 2)
+	{
+		glBegin(GL_LINES);
+		glVertex(selPolyLine[0]);
+		glVertex(selPolyLine[1]);
+	}
+	else
+	{
+		glBegin(GL_LINE_LOOP);
+		for (int ii = 0; ii < selPolyLine.size(); ii++)
+			glVertex(selPolyLine[ii]);
+	}
+	glEnd();
+
+	glDisable(GL_LOGIC_OP);
+	// Closing 2D
+	glPopAttrib();
+	glPopMatrix(); // restore modelview
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
 }
 
 void EditSelectPlugin::DrawXORRect(GLArea * gla, bool doubleDraw)
@@ -192,6 +442,59 @@ void EditSelectPlugin::DrawXORRect(GLArea * gla, bool doubleDraw)
 
 void EditSelectPlugin::Decorate(MeshModel &m, GLArea * gla)
 {
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		// get proj data of last rendering
+		glPushMatrix();
+		glMultMatrix(m.cm.Tr);
+        GLPickTri<CMeshO>::glGetMatrixAndViewport(this->SelMatrix, this->SelViewport);                
+		glGetDoublev(GL_MODELVIEW_MATRIX, mvMatrix_f);
+		glGetDoublev(GL_PROJECTION_MATRIX, prMatrix_f);
+		glGetIntegerv(GL_VIEWPORT, viewpSize);
+		glPopMatrix();
+
+		// draw current poly
+		DrawXORPolyLine(gla);
+
+		// then, the status
+		QString line1 = "";
+		QString line2 = "";
+		QString line3 = "";
+		QString line4 = "";
+
+		if (areaMode == 0)
+			line1 = "Vertices Selection - T for faces";
+		else if (areaMode == 1)
+			line1 = "Faces Selection - T for vertices";
+
+		line2 = "C to clear polyline, BACKSPACE to remove last point";
+
+		if (selPolyLine.size() < 3)
+			line3 = "more points needed";
+		else
+			line3 = "Q to add, W to subtract, E to invert";
+
+		line4 = "<br>A select all, D de-select all, I invert all";
+
+		this->RealTimeLog("Selection from Area", m.shortName(),
+			"%s<br>%s<br>%s<br>%s", line1.toStdString().c_str(), line2.toStdString().c_str(), line3.toStdString().c_str(), line4.toStdString().c_str());
+
+		return;
+	}
+	else
+	{
+		QString line1, line2, line3;
+
+		line1 = "Drag to select";
+		if ((selectionMode == SELECT_FACE_MODE) || (selectionMode == SELECT_CONN_MODE))
+			line2 = "you may hold:<br>- CTRL to add<br>- SHIFT to subtract<br>- ALT to select only visible";
+		else
+			line2 = "you may hold:<br>- CTRL to add<br>- SHIFT to subtract";
+		line3 = "<br>A select all, D de-select all, I invert all";
+
+		this->RealTimeLog("Interactive Selection", m.shortName(), "%s<br>%s<br>%s", line1.toStdString().c_str(), line2.toStdString().c_str(), line3.toStdString().c_str());
+	}
+
 	if (isDragging)
 	{
 		DrawXORRect(gla, false);
@@ -295,10 +598,17 @@ bool EditSelectPlugin::StartEdit(MeshModel & m, GLArea * gla, MLSceneGLSharedDat
 		return false;
 	gla->setCursor(QCursor(QPixmap(":/images/sel_rect.png"), 1, 1));
 
-	//connect(this, SIGNAL(setDecorator(QString, bool)), gla, SLOT(setDecorator(QString, bool)));
+	if (selectionMode == SELECT_AREA_MODE)
+	{
+		selPolyLine.clear();
+        gla->setCursor(QCursor(QPixmap(":/images/sel_area.png"), 1, 1));
+	}
 
-	//setDecorator("Show Selected Faces", true);
-	//setDecorator("Show Selected Vertices", true);
+	if (selectionMode == SELECT_VERT_MODE)
+		areaMode = 0;
+
+	if ((selectionMode == SELECT_FACE_MODE) || (selectionMode == SELECT_CONN_MODE))
+		areaMode = 1;
 
 	if (selectionMode == SELECT_CONN_MODE)
 		m.updateDataMask(MeshModel::MM_FACEFACETOPO);

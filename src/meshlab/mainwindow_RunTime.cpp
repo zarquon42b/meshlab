@@ -2492,6 +2492,7 @@ void MainWindow::documentUpdateRequested()
 
 void MainWindow::updateGPUMemBar(int allmem,int currentallocated)
 {
+#ifdef Q_OS_WIN
     if (nvgpumeminfo != NULL)
     {
         nvgpumeminfo->setFormat( "Mem %p% %v/%m MB" );
@@ -2501,8 +2502,10 @@ void MainWindow::updateGPUMemBar(int allmem,int currentallocated)
         nvgpumeminfo->setValue( remainingmb);
         nvgpumeminfo->setFixedWidth(300);
     }
+#else
+    nvgpumeminfo->hide();
+#endif
 }
-
 //WARNING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 //Temporary disgusting inequality between open (slot) - importMesh (function)
 //and importRaster (slot). It's not also difficult to remove the problem because
@@ -2595,7 +2598,7 @@ bool MainWindow::importRaster(const QString& fileImg)
 			GLA()->resetTrackBall();
 			GLA()->fov = rm->shot.GetFovFromFocal();
 			rm->shot = GLA()->shotFromTrackball().first;
-           
+			GLA()->resetTrackBall(); // and then we reset the trackball again, to have the standard view
 
             //			if(mdiarea->isVisible()) GLA()->mvc->showMaximized();
             updateMenus();
@@ -3069,6 +3072,9 @@ bool MainWindow::exportMesh(QString fileName,MeshModel* mod,const bool saveAllPo
         int savedMeshCounter=settings.value("savedMeshCounter",0).toInt();
         settings.setValue("savedMeshCounter",savedMeshCounter+1);
 		updateLayerDialog();
+
+		if (ret)
+			QDir::setCurrent(fi.absoluteDir().absolutePath()); //set current dir
     }
     return ret;
 }
@@ -3110,18 +3116,6 @@ bool MainWindow::saveSnapshot()
     {
         GLA()->ss=dialog.getValues();
         GLA()->saveSnapshot();
-
-        // if user ask to add the snapshot to raster layers
-        /*
-        if(dialog.addToRasters())
-        {
-        QString savedfile = QString("%1/%2%3.png")
-        .arg(GLA()->ss.outdir).arg(GLA()->ss.basename)
-        .arg(GLA()->ss.counter,2,10,QChar('0'));
-
-        importRaster(savedfile);
-        }
-        */
         return true;
     }
 
@@ -3302,7 +3296,7 @@ void MainWindow::updateTexture(int meshid)
         GLuint textid = shared->allocateTexturePerMesh(meshid,img,singleMaxTextureSizeMpx);
    
         if (sometextfailed)
-            QMessageBox::warning(this,"Texture files has not been correctly loaded",unexistingtext);
+            QMessageBox::warning(this,"Texture file has not been correctly loaded",unexistingtext);
 
         for(int tt = 0;tt < mvc->viewerCounter();++tt)
         {
@@ -3312,7 +3306,7 @@ void MainWindow::updateTexture(int meshid)
         }
     }
     if (sometextfailed)
-        QMessageBox::warning(this,"Texture files has not been correctly loaded",unexistingtext);
+        QMessageBox::warning(this,"Texture file has not been correctly loaded",unexistingtext);
 }
 
 void MainWindow::updateProgressBar( const int pos,const QString& text )

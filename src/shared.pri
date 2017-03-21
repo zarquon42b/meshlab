@@ -2,6 +2,7 @@
 
 include (general.pri)
 VCGDIR = ../$$VCGDIR
+EIGENDIR = ../$$EIGENDIR
 
 TEMPLATE      = lib
 CONFIG       += plugin
@@ -14,7 +15,6 @@ mac:LIBS += ../../common/libcommon.dylib
 
 #correct qmake syntax requires CONFIG(option, list of options)
 
-win32-msvc2012:  LIBS += ../../distrib/common.lib -lopengl32 -lGLU32
 win32-msvc2013:  LIBS += ../../distrib/common.lib -lopengl32 -lGLU32
 win32-msvc2015:  LIBS += ../../distrib/common.lib -lopengl32 -lGLU32
 win32-g++:LIBS += -L../../distrib -lcommon -lopengl32 -lGLU32
@@ -29,7 +29,7 @@ win32-msvc2015:DEFINES += GLEW_STATIC _USE_MATH_DEFINES
 # DEFINES += VCG_USE_EIGEN
 # CONFIG += warn_off
 
-INCLUDEPATH  *= ../.. $$VCGDIR ../$$GLEWDIR/include
+INCLUDEPATH  *= ../.. $$VCGDIR $$EIGENDIR ../$$GLEWDIR/include
 DEPENDPATH += ../.. $$VCGDIR
 
 # Uncomment these if you want to experiment with newer gcc compilers
@@ -58,4 +58,3 @@ contains(TEMPLATE,lib) {
       else:TARGET = $$member(TARGET, 0)d
    }
 }
-
